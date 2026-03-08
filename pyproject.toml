@@ -1,0 +1,15 @@
+[project]
+name = "nyc-taxi-data-platform"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "apache-airflow==3.1.7",
+    "apache-airflow-providers-cncf-kubernetes>=10.13.0",
+    "boto3>=1.42.63",
+    "pandas>=3.0.1",
+    "psycopg2-binary>=2.9.11",
+    "pyarrow>=23.0.1",
+    "sqlmodel>=0.0.37",
+]
