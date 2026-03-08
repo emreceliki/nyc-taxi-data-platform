@@ -1,0 +1,43 @@
+# Replica count for standalone mode
+replicaCount: 1
+
+# Image configuration
+image:
+  rustfs:
+    repository: rustfs/rustfs
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+# Deployment mode
+mode:
+  standalone:
+    enabled: true
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 0
+        maxUnavailable: 1
+  distributed:
+    enabled: false
+
+# Secret configuration
+secret:
+  existingSecret: ""
+  rustfs:
+    access_key: rustfsadmin
+    secret_key: rustfsadmin
+
+# Resource limits
+resources:
+  requests:
+    memory: 512Mi
+    cpu: 250m
+  limits:
+    memory: 1Gi
+    cpu: 500m
+
+# Storage class configuration
+storageclass:
+  name: hostpath
+  dataStorageSize: 5Gi
+  logStorageSize: 1Gi
