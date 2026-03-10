@@ -158,7 +158,7 @@ dagProcessor:
       classpath: "airflow.providers.git.bundles.git.GitDagBundle"
       kwargs:
         git_conn_id: "git_dags_conn"
-        subdir: "airflow/dags"
+        subdir: "orchestration/airflow/dags"
         tracking_ref: "develop"
         refresh_interval: 60
 
