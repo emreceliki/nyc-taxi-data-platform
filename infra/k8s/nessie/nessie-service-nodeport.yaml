@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nessie-nodeport
+  namespace: nessie
+  labels:
+    app.kubernetes.io/name: nessie
+    app.kubernetes.io/component: api
+spec:
+  type: NodePort
+  ports:
+  - name: api
+    port: 19120
+    targetPort: 19120
+    nodePort: 31920  # Nessie API
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: nessie

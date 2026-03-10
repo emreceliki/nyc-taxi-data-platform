@@ -1,0 +1,76 @@
+apiVersion: sparkoperator.k8s.io/v1beta2
+kind: SparkApplication
+metadata:
+  name: iceberg-nessie
+  namespace: default
+spec:
+  type: Python
+  pythonVersion: "3"
+  mode: cluster
+  image: "spark-iceberg-nessie:1.0"
+  imagePullPolicy: IfNotPresent
+  mainApplicationFile: local:///app/iceberg_nessie.py
+  sparkVersion: "3.5.3"
+  # Automatically delete the SparkApplication and all its resources after 600 seconds (10 minutes)
+  timeToLiveSeconds: 600
+  deps:
+    packages:
+      - "org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.8.1"
+      - "org.apache.iceberg:iceberg-spark-extensions-3.5_2.12:1.8.1"
+      - "org.projectnessie.nessie-integrations:nessie-spark-extensions-3.5_2.12:0.102.5"
+      - "org.apache.hadoop:hadoop-aws:3.3.4"
+      - "org.apache.hadoop:hadoop-common:3.3.4"
+    repositories:
+      - "https://repo1.maven.org/maven2"
+  sparkConf:
+    # Automatically delete driver pod on termination
+    "spark.kubernetes.driver.deleteOnTermination": "true"
+    # Automatically delete executor pods on termination
+    "spark.kubernetes.executor.deleteOnTermination": "true"
+    # Application timeout settings
+    "spark.sql.execution.timeout": "3600s"  # 1 hour max for SQL operations
+    "spark.network.timeout": "800s"        # Network timeout
+    "spark.executor.heartbeatInterval": "20s"  # Executor heartbeat
+    "spark.sql.adaptive.advisoryPartitionSizeInBytes": "128MB"  # Optimize partitions
+    "spark.sql.catalog.nessie": "org.apache.iceberg.spark.SparkCatalog"
+    "spark.sql.catalog.nessie.catalog-impl": "org.apache.iceberg.nessie.NessieCatalog"
+    "spark.sql.catalog.standardized.io-impl": "org.apache.iceberg.aws.s3.S3FileIO"
+    "spark.sql.catalog.standardized": "org.apache.iceberg.spark.SparkCatalog"
+    "spark.hadoop.fs.s3a.impl": "org.apache.hadoop.fs.s3a.S3AFileSystem"
+    "spark.sql.catalog.nessie.uri": "http://nessie.nessie.svc.cluster.local:19120/api/v2"
+    "spark.sql.catalog.nessie.warehouse": "s3a://warehouse/"
+    "spark.sql.catalog.nessie.s3.endpoint": "http://rustfs-svc.rustfs.svc.cluster.local:9000"
+    "spark.sql.catalog.nessie.ref": "main"
+    "spark.sql.catalog.nessie.authentication.type": "NONE"
+    "spark.sql.extensions": "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions,org.projectnessie.spark.extensions.NessieSparkSessionExtensions"
+    "spark.hadoop.fs.s3a.access.key": "rustfsadmin"
+    "spark.hadoop.fs.s3a.secret.key": "rustfsadmin"
+    "spark.hadoop.fs.s3a.endpoint": "http://rustfs-svc.rustfs.svc.cluster.local:9000"
+    "spark.hadoop.fs.s3a.path.style.access": "true"
+    "spark.hadoop.fs.s3a.connection.ssl.enabled": "false"
+    "spark.hadoop.fs.s3a.attempts.maximum": "1"
+    "spark.hadoop.fs.s3a.connection.establish.timeout": "5000"
+    "spark.hadoop.fs.s3a.connection.timeout": "10000"
+    "spark.jars.ivy": "/tmp/.ivy2"
+  driver:
+    cores: 1
+    coreLimit: "1200m"
+    memory: "512m"
+    labels:
+      version: 3.5.3
+    serviceAccount: spark
+    volumeMounts:
+      - name: ivy-cache
+        mountPath: /tmp/.ivy2
+  executor:
+    cores: 1
+    instances: 2
+    memory: "1000m"
+    labels:
+      version: 3.5.3
+    volumeMounts:
+      - name: ivy-cache
+        mountPath: /tmp/.ivy2
+  volumes:
+    - name: ivy-cache
+      emptyDir: {}

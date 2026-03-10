@@ -1,0 +1,74 @@
+# Nessie Data Catalog Configuration
+
+image:
+  repository: ghcr.io/projectnessie/nessie
+  tag: "0.107.1"
+  pullPolicy: IfNotPresent
+
+# Resource limits for development
+resources:
+  requests:
+    memory: 512Mi
+    cpu: 250m
+  limits:
+    memory: 1Gi
+    cpu: 500m
+
+# Service configuration
+service:
+  port: 19120
+
+# Health checks
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 5
+
+# Environment variables for Nessie configuration
+extraEnv:
+  # PostgreSQL version store configuration
+  - name: NESSIE_VERSION_STORE_TYPE
+    value: "JDBC"
+  - name: NESSIE_VERSION_STORE_PERSIST_JDBC_DATASOURCE
+    value: "postgresql"
+  - name: QUARKUS_DATASOURCE_POSTGRESQL_JDBC_URL
+    value: "jdbc:postgresql://cnpg-cluster-rw.cnpg-database.svc.cluster.local:5432/nessie"
+  - name: QUARKUS_DATASOURCE_POSTGRESQL_USERNAME
+    valueFrom:
+      secretKeyRef:
+        name: nessie-postgres-creds
+        key: username
+  - name: QUARKUS_DATASOURCE_POSTGRESQL_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: nessie-postgres-creds
+        key: password
+  
+  # RustFS S3 configuration for Iceberg tables
+  - name: NESSIE_CATALOG_SERVICE_S3_ENDPOINT
+    value: "http://rustfs.rustfs.svc.cluster.local:9000"
+  - name: NESSIE_CATALOG_SERVICE_S3_ACCESS_KEY_NAME
+    valueFrom:
+      secretKeyRef:
+        name: nessie-rustfs-creds
+        key: access-key
+  - name: NESSIE_CATALOG_SERVICE_S3_ACCESS_KEY_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: nessie-rustfs-creds
+        key: secret-key
+  - name: NESSIE_CATALOG_SERVICE_S3_PATH_STYLE_ACCESS
+    value: "true"
+  - name: NESSIE_CATALOG_DEFAULT_WAREHOUSE_DIR
+    value: "s3://warehouse/"
+  
+  # Optional: Configure logging
+  - name: QUARKUS_LOG_LEVEL
+    value: "INFO"
+  - name: QUARKUS_LOG_CONSOLE_JSON
+    value: "false"

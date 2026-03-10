@@ -1,0 +1,123 @@
+# Trino Distributed SQL Query Engine Configuration
+# Memory-optimized configuration for development environment
+
+# Container image configuration
+image:
+  repository: trinodb/trino
+  tag: 474
+  pullPolicy: IfNotPresent
+
+# Cluster topology - optimized for development
+server:
+  workers: 1  # Single worker for resource efficiency
+  config:
+    memory: "2GB"  # JVM heap size per node
+    query:
+      maxMemory: "1GB"  # Maximum memory per query
+      maxMemoryPerNode: "512MB"  # Maximum memory per node per query
+
+# Coordinator configuration
+coordinator:
+  config:
+    discovery:
+      uri: http://trino.trino.svc.cluster.local:8080  # Internal service discovery
+    httpServer:
+      http:
+        port: 8080
+
+# Service exposure configuration
+service:
+  type: NodePort
+  port: 8080
+  nodePort: 30080  # External access port
+
+# Resource limits for Kubernetes
+resources:
+  requests:
+    memory: "1.5Gi"  # Minimum memory allocation
+    cpu: "500m"      # Minimum CPU allocation
+  limits:
+    memory: "2Gi"    # Maximum memory allocation
+    cpu: "1"         # Maximum CPU allocation
+
+# JVM optimization for better performance
+environment:
+  JAVA_OPTS: "-Xmx1G -Xms1G -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+
+# Environment variables for secret references
+env:
+  - name: POSTGRES_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: trino-postgres-creds
+        key: password
+  - name: RUSTFS_ACCESS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: trino-rustfs-creds
+        key: access-key
+  - name: RUSTFS_SECRET_KEY
+    valueFrom:
+      secretKeyRef:
+        name: trino-rustfs-creds
+        key: secret-key
+
+# Data source catalogs configuration
+additionalCatalogs:
+  # PostgreSQL connector for CNPG database
+  postgresql: |
+    connector.name=postgresql
+    connection-url=jdbc:postgresql://cnpg-cluster-rw.cnpg-database.svc.cluster.local:5432/postgres
+    connection-user=postgres
+    connection-password=${ENV:POSTGRES_PASSWORD}
+
+  # Iceberg connector with Nessie catalog and RustFS storage
+  iceberg: |
+    connector.name=iceberg
+    iceberg.catalog.type=nessie
+    iceberg.nessie-catalog.uri=http://nessie.nessie.svc.cluster.local:19120/api/v1
+    iceberg.nessie-catalog.ref=main
+    iceberg.nessie-catalog.default-warehouse-dir=s3://warehouse/
+    
+    # S3/RustFS configuration
+    fs.native-s3.enabled=true
+    s3.path-style-access=true
+    s3.region=us-east-1
+    s3.endpoint=http://rustfs-svc.rustfs.svc.cluster.local:9000
+    s3.aws-access-key=${ENV:RUSTFS_ACCESS_KEY}
+    s3.aws-secret-key=${ENV:RUSTFS_SECRET_KEY}
+
+# Health checks configuration
+coordinator:
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+  
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+worker:
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+  
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# Security configuration (basic development setup)
+auth:
+  enabled: false

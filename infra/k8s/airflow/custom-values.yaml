@@ -1,0 +1,189 @@
+# Custom values for Apache Airflow Helm chart - Memory Optimized
+# Chart: apache-airflow/airflow (https://airflow.apache.org)
+
+# Airflow global settings
+executor: KubernetesExecutor
+defaultAirflowRepository: apache/airflow
+defaultAirflowTag: "3.1.7"
+
+# Airflow configuration
+webserverSecretKey: "dc35a3b59f1274fdd677c784d363d1a9"
+
+# Database configuration - external PostgreSQL
+data:
+  metadataConnection:
+    user: airflow
+    pass: airflow
+    protocol: postgresql
+    host: cnpg-cluster-rw.cnpg-database.svc.cluster.local
+    port: 5432
+    db: airflow
+    sslmode: disable
+
+# API Server configuration (handles web UI in Airflow 3.x)
+apiServer:
+  enabled: true
+  service:
+    type: NodePort
+    annotations: {}
+    ports:
+      - name: api-server
+        port: 8080
+        nodePort: 31880
+  resources:
+    requests:
+      cpu: "400m"        
+      memory: "512Mi"    
+    limits:
+      cpu: "800m"        
+      memory: "1200Mi"
+  replicas: 1
+
+# Scheduler configuration - Balanced for Stability
+scheduler:
+  resources:
+    requests:
+      cpu: "400m"        # Increased back for task processing
+      memory: "512Mi"    # Increased back for DAG parsing
+    limits:
+      cpu: "800m"        # Reduced from 1000m to prevent excessive CPU usage
+      memory: "1Gi"      # Keep original for complex DAGs
+  replicas: 1
+  
+# Worker configuration - Adequate for Simple to Moderate Tasks
+workers:
+  resources:
+    requests:
+      cpu: 300m          # Increased from 200m for better task performance
+      memory: 768Mi      # Increased from 512Mi for data processing
+    limits:
+      cpu: 600m          # Increased from 400m for Spark jobs
+      memory: 1.5Gi      # Increased from 1Gi for larger datasets
+
+# Database migration job
+migrateDatabaseJob:
+  enabled: true
+  useHelmHooks: false
+  jobAnnotations: {}
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+# User creation job
+createUserJob:
+  enabled: true
+  useHelmHooks: false
+  defaultUser:
+    enabled: true
+    role: Admin
+    username: admin
+    email: admin@example.com
+    firstName: Admin
+    lastName: User
+    password: admin
+  jobAnnotations: {}
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+# Add database configuration to ensure proper connection
+config:
+  core:
+    executor: KubernetesExecutor
+    load_examples: "False"
+    parallelism: 20      # Increased from 16 - allows more concurrent tasks
+    dag_concurrency: 10  # Increased from 8 - better for multiple DAG runs
+    max_active_runs_per_dag: 3  # Increased from 2 - allows some parallel runs
+  api:
+    workers: 2           # Moved from webserver section
+  webserver:
+    worker_timeout: 120
+    web_server_worker_timeout: 120
+  scheduler:
+    max_threads: 2       # Increased back to 2 for better DAG processing
+    catchup_by_default: "False"
+  dag_processor:
+    refresh_interval: 300
+  kubernetes_executor:
+    namespace: airflow
+    worker_container_repository: apache/airflow
+    worker_container_tag: "3.1.7"
+    delete_worker_pods: "True"
+    delete_worker_pods_on_success: "True"
+  # Add database configuration
+  database:
+    sql_alchemy_conn: "postgresql://airflow:airflow@cnpg-cluster-rw.cnpg-database.svc.cluster.local:5432/airflow?sslmode=disable"
+
+# Disable embedded PostgreSQL
+postgresql:
+  enabled: false
+
+# DAGs configuration - Using GitDagBundle instead of gitSync
+dags:
+  persistence:
+    enabled: false  # Not needed with GitDagBundle
+  gitSync:
+    enabled: false  # Disabled in favor of GitDagBundle
+
+# Logs persistence
+logs:
+  persistence:
+    enabled: true
+    size: 10Gi           # Reverted back to original (can't shrink PVC)
+    storageClassName: hostpath
+
+# Disable unnecessary components
+triggerer:
+  enabled: false
+redis:
+  enabled: false
+flower:
+  enabled: false
+statsd:
+  enabled: false
+pgbouncer:
+  enabled: false
+dagProcessor:
+  enabled: true
+  dagBundleConfigList:
+    - name: git-dags
+      classpath: "airflow.providers.git.bundles.git.GitDagBundle"
+      kwargs:
+        git_conn_id: "git_dags_conn"
+        subdir: "airflow/dags"
+        tracking_ref: "develop"
+        refresh_interval: 60
+
+# Security context
+securityContext:
+  fsGroup: 0
+  runAsUser: 50000
+  runAsGroup: 0
+
+# Git connection for GitDagBundle
+connections:
+  - id: git_dags_conn
+    type: git
+    host: "github.com"
+    login: "emreceliki"
+    passwordSecret: "git-credentials"
+    passwordSecretKey: "password"
+    extra: |
+      {
+        "repo": "https://github.com/emreceliki/nyc-taxi-data-platform.git",
+        "branch": "develop"
+      }
+
+# Ensure PostgreSQL compatibility and Git provider
+extraPipPackages:
+  - "psycopg2-binary"
+  - "apache-airflow-providers-cncf-kubernetes"
+  - "apache-airflow-providers-git"
