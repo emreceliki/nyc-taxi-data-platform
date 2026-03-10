@@ -1,6 +1,6 @@
 # Spark + Iceberg + Nessie Data Lake Example
 
-This directory contains a complete example of how to write data to Apache Iceberg tables using Spark on Kubernetes, with Nessie as the catalog and MinIO as the storage backend.
+This directory contains a complete example of how to write data to Apache Iceberg tables using Spark on Kubernetes, with Nessie as the catalog and RustFS as the storage backend.
 
 ## Overview
 
@@ -131,9 +131,6 @@ kubectl run --rm -i aws-cli --image=amazon/aws-cli:latest --restart=Never \
   -- s3 mb s3://bronze --endpoint-url=http://rustfs-svc.rustfs.svc.cluster.local:9000
 
 # Upload CSV file via RustFS console at http://localhost:30903
-# Or use a simpler approach:
-# 1. Download the file locally: curl https://raw.githubusercontent.com/erkansirin78/datasets/refs/heads/master/Churn_Modelling.csv -o Churn_Modelling.csv
-# 2. Upload via RustFS web console to bronze bucket
 ```
 
 # Configure and upload
